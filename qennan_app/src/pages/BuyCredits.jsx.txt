@@ -1,0 +1,194 @@
+import React, { useState, useEffect } from "react";
+import { useOutletContext } from "react-router-dom";
+import { base44 } from "@/api/base44Client";
+import { Button } from "@/components/ui/button";
+import { Upload, CheckCircle2, Clock, XCircle, Zap, Crown, Smartphone, ExternalLink, Heart } from "lucide-react";
+import { motion } from "framer-motion";
+import { useToast } from "@/components/ui/use-toast";
+
+export default function BuyCredits() {
+  const { refreshCredits } = useOutletContext();
+  const { toast } = useToast();
+  const [user, setUser] = useState(null);
+  const [proofFile, setProofFile] = useState(null);
+  const [proofPreview, setProofPreview] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [myRequests, setMyRequests] = useState([]);
+
+  useEffect(() => {
+    const init = async () => {
+      const me = await base44.auth.me();
+      setUser(me);
+      const reqs = await base44.entities.PaymentRequest.filter({ user_id: me.id }, "-created_date", 10);
+      setMyRequests(reqs);
+    };
+    init();
+  }, [submitted]);
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setProofFile(file);
+    setProofPreview(URL.createObjectURL(file));
+  };
+
+  const handleSubmit = async () => {
+    if (!proofFile) {
+      toast({ title: "Upload bukti transfer dulu", variant: "destructive" });
+      return;
+    }
+    setUploading(true);
+    try {
+      const { file_url } = await base44.integrations.Core.UploadFile({ file: proofFile });
+      await base44.entities.PaymentRequest.create({
+        user_id: user.id,
+        user_email: user.email,
+        user_name: user.full_name || user.email,
+        amount: 10000,
+        credits: 500,
+        proof_image_url: file_url,
+        status: "pending",
+      });
+      setSubmitted(true);
+      setProofFile(null);
+      setProofPreview(null);
+      toast({ title: "Permintaan terkirim!", description: "Admin akan memverifikasi pembayaran kamu." });
+    } catch (e) {
+      toast({ title: "Gagal mengirim", variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const STATUS_MAP = {
+    pending: { icon: Clock, color: "text-amber-400", label: "Menunggu Verifikasi" },
+    approved: { icon: CheckCircle2, color: "text-emerald-400", label: "Disetujui" },
+    rejected: { icon: XCircle, color: "text-red-400", label: "Ditolak" },
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+        <h1 className="font-display text-2xl sm:text-3xl font-bold text-foreground mb-1">Beli Credit</h1>
+        <p className="text-sm text-muted-foreground mb-8">Upgrade ke Premium & nikmati hasil tanpa watermark</p>
+
+        {/* Package Card */}
+        <div className="rounded-2xl border border-primary/40 bg-gradient-to-br from-primary/10 to-accent/5 p-6 mb-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+              <Crown className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <p className="font-display font-bold text-foreground">Paket Premium</p>
+              <p className="text-xs text-muted-foreground">Sekali beli, status langsung naik</p>
+            </div>
+            <div className="ml-auto text-right">
+              <p className="font-display text-2xl font-bold text-primary">Rp 10.000</p>
+              <p className="text-xs text-muted-foreground">500 credit</p>
+            </div>
+          </div>
+          <ul className="space-y-2 text-sm text-foreground/80">
+            {["500 credit AI editing", "Hasil tanpa watermark", "Akses semua AI tools", "Prioritas proses"].map((f) => (
+              <li key={f} className="flex items-center gap-2">
+                <Zap className="w-3.5 h-3.5 text-primary shrink-0" />
+                {f}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Payment Methods */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+          {/* GoPay */}
+          <div className="rounded-xl border border-border bg-card p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <Smartphone className="w-5 h-5 text-green-400" />
+              <h2 className="font-semibold text-foreground text-sm">GoPay</h2>
+            </div>
+            <div className="bg-secondary rounded-lg p-3 text-center mb-3">
+              <p className="text-[10px] text-muted-foreground mb-1">Nomor Tujuan</p>
+              <p className="font-display text-lg font-bold text-foreground tracking-wide">0831-4118-8851</p>
+              <p className="text-[10px] text-muted-foreground mt-1">a/n adek harianto</p>
+            </div>
+            <p className="text-xs text-muted-foreground">Transfer Rp 10.000 lalu upload bukti</p>
+          </div>
+
+          {/* Saweria */}
+          <div className="rounded-xl border border-border bg-card p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <Heart className="w-5 h-5 text-amber-400" />
+              <h2 className="font-semibold text-foreground text-sm">Saweria</h2>
+            </div>
+            <div className="bg-secondary rounded-lg p-3 text-center mb-3">
+              <p className="text-[10px] text-muted-foreground mb-1">Link Saweria</p>
+              <p className="font-display text-sm font-bold text-foreground truncate">saweria.co/adekharianto</p>
+            </div>
+            <a href="https://saweria.co/adekharianto" target="_blank" rel="noopener noreferrer">
+              <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs">
+                <ExternalLink className="w-3.5 h-3.5" /> Buka Saweria
+              </Button>
+            </a>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-border bg-secondary/50 p-4 mb-6 text-sm text-muted-foreground">
+          <p className="font-medium text-foreground mb-1">Cara pembayaran:</p>
+          <ol className="list-decimal list-inside space-y-1">
+            <li>Pilih GoPay atau Saweria, donasi <span className="font-semibold text-foreground">Rp 10.000</span></li>
+            <li>Screenshot bukti pembayaran</li>
+            <li>Upload di bawah & klik Kirim</li>
+            <li>Admin verifikasi, credit & status Premium aktif otomatis</li>
+          </ol>
+        </div>
+
+        {/* Upload Proof */}
+        <div className="rounded-xl border border-border bg-card p-5 mb-6">
+          <h2 className="font-semibold text-foreground mb-4">Upload Bukti Transfer</h2>
+          <label className={`flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed cursor-pointer transition-all h-40 ${proofPreview ? "border-primary/40" : "border-border hover:border-primary/40"}`}>
+            <input type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+            {proofPreview ? (
+              <img src={proofPreview} alt="Bukti" className="h-full w-full object-contain rounded-xl" />
+            ) : (
+              <>
+                <Upload className="w-8 h-8 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">Tap untuk pilih foto bukti transfer</p>
+              </>
+            )}
+          </label>
+          <Button
+            onClick={handleSubmit}
+            disabled={!proofFile || uploading}
+            className="w-full mt-4 h-11 bg-gradient-to-r from-primary to-accent hover:opacity-90"
+          >
+            {uploading ? "Mengirim..." : "Kirim Permintaan"}
+          </Button>
+        </div>
+
+        {/* History */}
+        {myRequests.length > 0 && (
+          <div className="rounded-xl border border-border bg-card p-5">
+            <h2 className="font-semibold text-foreground mb-4">Riwayat Permintaan</h2>
+            <div className="space-y-3">
+              {myRequests.map((req) => {
+                const s = STATUS_MAP[req.status] || STATUS_MAP.pending;
+                return (
+                  <div key={req.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">500 credit — Rp 10.000</p>
+                      <p className="text-xs text-muted-foreground">{new Date(req.created_date).toLocaleDateString("id-ID")}</p>
+                    </div>
+                    <span className={`flex items-center gap-1.5 text-xs font-medium ${s.color}`}>
+                      <s.icon className="w-3.5 h-3.5" />
+                      {s.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </motion.div>
+    </div>
+  );
+}

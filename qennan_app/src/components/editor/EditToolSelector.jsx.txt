@@ -1,0 +1,91 @@
+import React from "react";
+import { Wand2, Eraser, Palette, ZoomIn, Paintbrush, MessageSquare } from "lucide-react";
+
+const TOOLS = [
+  {
+    id: "enhance",
+    label: "Enhance",
+    description: "Auto-improve quality & clarity",
+    icon: Wand2,
+    credits: 2,
+    color: "from-violet-500 to-purple-600",
+  },
+  {
+    id: "background_remove",
+    label: "Remove BG",
+    description: "Remove background instantly",
+    icon: Eraser,
+    credits: 3,
+    color: "from-pink-500 to-rose-600",
+  },
+  {
+    id: "style_transfer",
+    label: "Style Transfer",
+    description: "Apply artistic styles",
+    icon: Paintbrush,
+    credits: 5,
+    color: "from-orange-500 to-amber-600",
+  },
+  {
+    id: "upscale",
+    label: "Upscale",
+    description: "Increase resolution with AI",
+    icon: ZoomIn,
+    credits: 4,
+    color: "from-cyan-500 to-blue-600",
+  },
+  {
+    id: "recolor",
+    label: "Recolor",
+    description: "Change colors intelligently",
+    icon: Palette,
+    credits: 3,
+    color: "from-emerald-500 to-teal-600",
+  },
+  {
+    id: "custom_prompt",
+    label: "Custom Edit",
+    description: "Describe what you want",
+    icon: MessageSquare,
+    credits: 5,
+    color: "from-indigo-500 to-violet-600",
+  },
+];
+
+export default function EditToolSelector({ selected, onSelect }) {
+  return (
+    <div className="space-y-3">
+      <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">
+        AI Tools
+      </h3>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+        {TOOLS.map((tool) => (
+          <button
+            key={tool.id}
+            onClick={() => onSelect(tool.id)}
+            className={`relative group p-3 rounded-xl border text-left transition-all duration-200 ${
+              selected === tool.id
+                ? "border-primary bg-primary/10 ring-1 ring-primary/30"
+                : "border-border bg-card hover:border-primary/30 hover:bg-secondary"
+            }`}
+          >
+            <div
+              className={`w-8 h-8 rounded-lg bg-gradient-to-br ${tool.color} flex items-center justify-center mb-2`}
+            >
+              <tool.icon className="w-4 h-4 text-white" />
+            </div>
+            <p className="text-xs font-semibold text-foreground">{tool.label}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">
+              {tool.description}
+            </p>
+            <span className="absolute top-2 right-2 text-[10px] font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
+              {tool.credits}cr
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export { TOOLS };

@@ -1,0 +1,224 @@
+import React, { useState } from "react";
+import { useOutletContext } from "react-router-dom";
+import { Sparkles, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/use-toast";
+import { base44 } from "@/api/base44Client";
+import { motion } from "framer-motion";
+import UploadZone from "@/components/editor/UploadZone";
+import EditToolSelector, { TOOLS } from "@/components/editor/EditToolSelector";
+import AspectRatioSelector from "@/components/editor/AspectRatioSelector";
+import ResultPreview from "@/components/editor/ResultPreview";
+
+const PROMPTS = {
+  enhance: "Enhance this photo: improve the clarity, color balance, contrast, lighting, and overall quality. Make it look professional and vibrant. Output a high quality enhanced version.",
+  background_remove: "Remove the background from this image completely, leaving only the main subject on a clean transparent/white background. Output a clean cutout.",
+  style_transfer: "Apply a beautiful artistic oil painting style to this photo while preserving the subject and composition. Make it look like a masterpiece painting.",
+  upscale: "Upscale and enhance this image to make it sharper and higher quality. Improve the details, reduce noise, and make it look crisp and professional.",
+  recolor: "Intelligently recolor this image with a more vibrant and harmonious color palette. Adjust the color grading to make it visually stunning while keeping it natural.",
+};
+
+export default function Editor() {
+  const { credits, refreshCredits, isPremium } = useOutletContext();
+  const { toast } = useToast();
+  const [imageUrl, setImageUrl] = useState(null);
+  const [editType, setEditType] = useState("enhance");
+  const [aspectRatio, setAspectRatio] = useState("original");
+  const [customPrompt, setCustomPrompt] = useState("");
+  const [processing, setProcessing] = useState(false);
+  const [result, setResult] = useState(null);
+
+  const selectedTool = TOOLS.find((t) => t.id === editType);
+  const remaining = (credits?.total_credits || 50) - (credits?.used_credits || 0);
+  const canProcess = imageUrl && remaining >= (selectedTool?.credits || 0);
+
+  const handleGenerate = async () => {
+    if (!canProcess) {
+      toast({
+        title: "Insufficient credits",
+        description: "You don't have enough credits for this operation.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setProcessing(true);
+    setResult(null);
+
+    try {
+      const prompt =
+        editType === "custom_prompt"
+          ? `Edit this photo based on the following instructions: ${customPrompt}. ${aspectRatio !== "original" ? `Output the result in ${aspectRatio} aspect ratio.` : ""}`
+          : `${PROMPTS[editType]} ${aspectRatio !== "original" ? `Output the result in ${aspectRatio} aspect ratio.` : ""}`;
+
+      const response = await base44.integrations.Core.GenerateImage({
+        prompt,
+        existing_image_urls: [imageUrl],
+      });
+
+      const editedUrl = response.url;
+
+      await base44.entities.Project.create({
+        title: `${selectedTool.label} Edit`,
+        original_image_url: imageUrl,
+        edited_image_url: editedUrl,
+        edit_type: editType,
+        custom_prompt: editType === "custom_prompt" ? customPrompt : "",
+        aspect_ratio: aspectRatio,
+        status: "completed",
+        credits_used: selectedTool.credits,
+      });
+
+      if (credits?.id) {
+        await base44.entities.CreditAccount.update(credits.id, {
+          used_credits: (credits.used_credits || 0) + selectedTool.credits,
+        });
+      }
+
+      setResult(editedUrl);
+      refreshCredits();
+
+      toast({
+        title: "Edit complete!",
+        description: `Used ${selectedTool.credits} credits.`,
+      });
+    } catch (err) {
+      await base44.entities.Project.create({
+        title: `${selectedTool.label} Edit`,
+        original_image_url: imageUrl,
+        edit_type: editType,
+        aspect_ratio: aspectRatio,
+        status: "failed",
+        credits_used: 0,
+      });
+      toast({
+        title: "Edit failed",
+        description: "Something went wrong. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  return (
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-8"
+      >
+        <h1 className="font-display text-2xl sm:text-3xl font-bold text-foreground">
+          AI Photo Editor
+        </h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Upload your photo and let AI transform it
+        </p>
+      </motion.div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left panel: Upload + Result */}
+        <div className="lg:col-span-2 space-y-6">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+          >
+            <UploadZone
+              onImageUploaded={setImageUrl}
+              currentImage={imageUrl}
+              onClear={() => {
+                setImageUrl(null);
+                setResult(null);
+              }}
+            />
+          </motion.div>
+
+          {result && (
+            <ResultPreview
+              originalUrl={imageUrl}
+              editedUrl={result}
+              onClose={() => setResult(null)}
+              isPremium={isPremium}
+            />
+          )}
+
+          {processing && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex flex-col items-center justify-center py-16 rounded-xl border border-border bg-card"
+            >
+              <div className="relative">
+                <div className="w-16 h-16 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+                <Sparkles className="absolute inset-0 m-auto w-6 h-6 text-primary" />
+              </div>
+              <p className="mt-4 text-sm font-medium text-foreground">AI is processing your image...</p>
+              <p className="text-xs text-muted-foreground mt-1">This may take a few seconds</p>
+            </motion.div>
+          )}
+        </div>
+
+        {/* Right panel: Tools */}
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.2 }}
+          className="space-y-6"
+        >
+          <div className="rounded-xl border border-border bg-card p-5 space-y-6">
+            <EditToolSelector selected={editType} onSelect={setEditType} />
+
+            {editType === "custom_prompt" && (
+              <div className="space-y-2">
+                <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">
+                  Your Prompt
+                </h3>
+                <Textarea
+                  placeholder="Describe the edit you want... e.g. 'Make it look like a watercolor painting'"
+                  value={customPrompt}
+                  onChange={(e) => setCustomPrompt(e.target.value)}
+                  className="bg-secondary border-border min-h-[100px] text-sm resize-none"
+                />
+              </div>
+            )}
+
+            <AspectRatioSelector selected={aspectRatio} onSelect={setAspectRatio} />
+
+            <div className="pt-2 border-t border-border">
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-xs text-muted-foreground">Cost</span>
+                <span className="text-sm font-semibold text-primary">
+                  {selectedTool?.credits || 0} credits
+                </span>
+              </div>
+              <Button
+                onClick={handleGenerate}
+                disabled={!canProcess || processing}
+                className="w-full gap-2 h-11 bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-opacity"
+              >
+                {processing ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Sparkles className="w-4 h-4" />
+                )}
+                {processing ? "Processing..." : "Generate Edit"}
+              </Button>
+              {!imageUrl && (
+                <p className="text-[10px] text-muted-foreground text-center mt-2">
+                  Upload an image first
+                </p>
+              )}
+              {imageUrl && remaining < (selectedTool?.credits || 0) && (
+                <p className="text-[10px] text-destructive text-center mt-2">
+                  Not enough credits
+                </p>
+              )}
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    </div>
+  );
+}

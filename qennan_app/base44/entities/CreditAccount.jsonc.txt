@@ -1,0 +1,48 @@
+{
+  "name": "CreditAccount",
+  "type": "object",
+  "properties": {
+    "total_credits": {
+      "type": "number",
+      "default": 50
+    },
+    "used_credits": {
+      "type": "number",
+      "default": 0
+    }
+  },
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "create": {
+      "created_by_id": "{{user.id}}"
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

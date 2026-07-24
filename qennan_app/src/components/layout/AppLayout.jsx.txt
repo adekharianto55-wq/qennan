@@ -1,0 +1,50 @@
+import React, { useState, useEffect } from "react";
+import { Outlet } from "react-router-dom";
+import Navbar from "./Navbar";
+import { base44 } from "@/api/base44Client";
+
+export default function AppLayout() {
+  const [credits, setCredits] = useState(null);
+  const [user, setUser] = useState(null);
+
+  const loadData = async () => {
+    try {
+      const me = await base44.auth.me();
+      setUser(me);
+      const accounts = await base44.entities.CreditAccount.list();
+      if (accounts.length > 0) {
+        setCredits(accounts[0]);
+      } else {
+        const newAccount = await base44.entities.CreditAccount.create({
+          total_credits: 50,
+          used_credits: 0,
+        });
+        setCredits(newAccount);
+      }
+    } catch (e) {
+      setCredits({ total_credits: 50, used_credits: 0 });
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const ADMIN_EMAIL = "adek.harianto007@gmail.com";
+  const isAdmin = user?.email === ADMIN_EMAIL;
+  const isPremium = isAdmin || user?.is_premium === true;
+
+  // Admin gets unlimited credits display
+  const effectiveCredits = isAdmin
+    ? { total_credits: 999999, used_credits: 0 }
+    : credits;
+
+  return (
+    <div className="min-h-screen bg-background">
+      <Navbar credits={effectiveCredits} isPremium={isPremium} userRole={user?.role} isAdmin={isAdmin} />
+      <main className="pt-16">
+        <Outlet context={{ credits: effectiveCredits, refreshCredits: loadData, isPremium, user, isAdmin }} />
+      </main>
+    </div>
+  );
+}

@@ -1,0 +1,60 @@
+import React from "react";
+import { Clock, Zap, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import moment from "moment";
+
+const STATUS_MAP = {
+  completed: { icon: CheckCircle2, color: "text-emerald-400", label: "Completed" },
+  failed: { icon: XCircle, color: "text-red-400", label: "Failed" },
+  processing: { icon: Loader2, color: "text-primary animate-spin", label: "Processing" },
+  pending: { icon: Clock, color: "text-muted-foreground", label: "Pending" },
+};
+
+const TOOL_LABELS = {
+  enhance: "Enhance",
+  background_remove: "Remove BG",
+  style_transfer: "Style Transfer",
+  upscale: "Upscale",
+  recolor: "Recolor",
+  custom_prompt: "Custom Edit",
+};
+
+export default function ProjectCard({ project }) {
+  const status = STATUS_MAP[project.status] || STATUS_MAP.pending;
+  const StatusIcon = status.icon;
+  const displayImage = project.edited_image_url || project.original_image_url;
+
+  return (
+    <div className="group rounded-xl border border-border bg-card overflow-hidden hover:border-primary/30 transition-all duration-300">
+      <div className="relative aspect-video bg-black/20">
+        {displayImage && (
+          <img
+            src={displayImage}
+            alt={project.title}
+            className="w-full h-full object-cover"
+          />
+        )}
+        <div className="absolute top-2 right-2 flex items-center gap-1.5 px-2 py-1 rounded-md bg-black/60 backdrop-blur-sm">
+          <StatusIcon className={`w-3 h-3 ${status.color}`} />
+          <span className="text-[10px] font-medium text-white">{status.label}</span>
+        </div>
+      </div>
+      <div className="p-3">
+        <p className="text-sm font-medium text-foreground truncate">
+          {project.title || "Untitled"}
+        </p>
+        <div className="flex items-center justify-between mt-2">
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground font-medium">
+            {TOOL_LABELS[project.edit_type] || project.edit_type}
+          </span>
+          <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <Zap className="w-3 h-3" />
+              {project.credits_used}cr
+            </span>
+            <span>{moment(project.created_date).fromNow()}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

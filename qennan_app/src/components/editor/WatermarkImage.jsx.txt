@@ -1,0 +1,25 @@
+import React from "react";
+
+export default function WatermarkImage({ src, alt, className }) {
+  return (
+    <div className="relative inline-block w-full h-full">
+      <img src={src} alt={alt} className={className} />
+      <div
+        className="absolute bottom-3 left-3 pointer-events-none select-none"
+        style={{
+          fontFamily: "Space Grotesk, sans-serif",
+          fontSize: "13px",
+          fontWeight: 700,
+          color: "rgba(255,255,255,0.85)",
+          textShadow: "0 1px 4px rgba(0,0,0,0.8)",
+          letterSpacing: "0.08em",
+          background: "rgba(0,0,0,0.35)",
+          padding: "3px 8px",
+          borderRadius: "4px",
+        }}
+      >
+        QENNAN AI
+      </div>
+    </div>
+  );
+}

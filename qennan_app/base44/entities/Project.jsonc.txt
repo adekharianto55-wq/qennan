@@ -1,0 +1,103 @@
+{
+  "name": "Project",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "default": "Untitled Project"
+    },
+    "original_image_url": {
+      "type": "string",
+      "format": "uri"
+    },
+    "edited_image_url": {
+      "type": "string",
+      "format": "uri"
+    },
+    "edit_type": {
+      "type": "string",
+      "enum": [
+        "enhance",
+        "background_remove",
+        "style_transfer",
+        "upscale",
+        "recolor",
+        "custom_prompt"
+      ]
+    },
+    "custom_prompt": {
+      "type": "string"
+    },
+    "aspect_ratio": {
+      "type": "string",
+      "enum": [
+        "original",
+        "1:1",
+        "4:3",
+        "3:2",
+        "16:9",
+        "9:16"
+      ],
+      "default": "original"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "processing",
+        "completed",
+        "failed"
+      ],
+      "default": "pending"
+    },
+    "credits_used": {
+      "type": "number",
+      "default": 0
+    }
+  },
+  "required": [
+    "original_image_url",
+    "edit_type"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "create": {
+      "created_by_id": "{{user.id}}"
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

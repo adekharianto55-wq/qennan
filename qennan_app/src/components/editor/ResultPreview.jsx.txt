@@ -1,0 +1,70 @@
+import React, { useState } from "react";
+import { Download, ArrowLeftRight, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { motion } from "framer-motion";
+import WatermarkImage from "./WatermarkImage";
+
+export default function ResultPreview({ originalUrl, editedUrl, onClose, isPremium }) {
+  const [showOriginal, setShowOriginal] = useState(false);
+
+  if (!editedUrl) return null;
+
+  const displayUrl = showOriginal ? originalUrl : editedUrl;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="space-y-4"
+    >
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">
+          Result
+        </h3>
+        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
+          <X className="w-4 h-4" />
+        </Button>
+      </div>
+      <div className="relative rounded-xl overflow-hidden border border-border bg-black/20">
+        {(!showOriginal && !isPremium) ? (
+          <WatermarkImage src={displayUrl} alt="Edited" className="w-full h-64 sm:h-80 object-contain" />
+        ) : (
+          <img src={displayUrl} alt={showOriginal ? "Original" : "Edited"} className="w-full h-64 sm:h-80 object-contain" />
+        )}
+        <div className="absolute bottom-3 left-3 px-2 py-1 rounded-md bg-black/60 text-white text-xs font-medium" style={{ marginBottom: !showOriginal && !isPremium ? "2rem" : 0 }}>
+          {showOriginal ? "Original" : "Edited"}
+        </div>
+        {!isPremium && !showOriginal && (
+          <div className="absolute top-2 left-2 px-2 py-1 rounded-md bg-amber-500/20 border border-amber-400/30 text-amber-300 text-[10px] font-medium">
+            Upgrade ke Premium untuk hasil tanpa watermark
+          </div>
+        )}
+      </div>
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2 flex-1"
+          onClick={() => setShowOriginal(!showOriginal)}
+        >
+          <ArrowLeftRight className="w-4 h-4" />
+          {showOriginal ? "Show Edited" : "Show Original"}
+        </Button>
+        <Button
+          size="sm"
+          className="gap-2 flex-1 bg-primary hover:bg-primary/90"
+          onClick={() => {
+            const link = document.createElement("a");
+            link.href = editedUrl;
+            link.download = "qennan-ai-edited.png";
+            link.target = "_blank";
+            link.click();
+          }}
+        >
+          <Download className="w-4 h-4" />
+          Download
+        </Button>
+      </div>
+    </motion.div>
+  );
+}

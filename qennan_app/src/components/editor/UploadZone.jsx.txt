@@ -1,0 +1,109 @@
+import React, { useRef, useState } from "react";
+import { Upload, Image as ImageIcon, X } from "lucide-react";
+import { base44 } from "@/api/base44Client";
+import { motion, AnimatePresence } from "framer-motion";
+
+export default function UploadZone({ onImageUploaded, currentImage, onClear }) {
+  const inputRef = useRef(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  const handleFile = async (file) => {
+    if (!file || !file.type.startsWith("image/")) return;
+    setUploading(true);
+    try {
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      onImageUploaded(file_url);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const onDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files[0];
+    handleFile(file);
+  };
+
+  const onDragOver = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  if (currentImage) {
+    return (
+      <div className="relative group rounded-xl overflow-hidden border border-border bg-card">
+        <img
+          src={currentImage}
+          alt="Uploaded"
+          className="w-full h-64 sm:h-80 object-contain bg-black/20"
+        />
+        <button
+          onClick={onClear}
+          className="absolute top-3 right-3 p-1.5 rounded-lg bg-black/60 hover:bg-black/80 text-white transition-colors"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      onDrop={onDrop}
+      onDragOver={onDragOver}
+      onDragLeave={() => setIsDragging(false)}
+      onClick={() => inputRef.current?.click()}
+      className={`relative cursor-pointer rounded-xl border-2 border-dashed transition-all duration-300 flex flex-col items-center justify-center h-64 sm:h-80 ${
+        isDragging
+          ? "border-primary bg-primary/5 scale-[1.01]"
+          : "border-border hover:border-primary/50 bg-card/50 hover:bg-card"
+      }`}
+    >
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => handleFile(e.target.files[0])}
+      />
+      <AnimatePresence mode="wait">
+        {uploading ? (
+          <motion.div
+            key="loading"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="flex flex-col items-center gap-3"
+          >
+            <div className="w-10 h-10 border-3 border-primary/30 border-t-primary rounded-full animate-spin" />
+            <p className="text-sm text-muted-foreground">Uploading...</p>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="idle"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="flex flex-col items-center gap-4"
+          >
+            <div className="w-16 h-16 rounded-2xl bg-secondary flex items-center justify-center">
+              <Upload className="w-7 h-7 text-muted-foreground" />
+            </div>
+            <div className="text-center">
+              <p className="text-sm font-medium text-foreground">
+                Drop your image here or click to browse
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                PNG, JPG, WEBP up to 10MB
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}

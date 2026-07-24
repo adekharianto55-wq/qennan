@@ -1,0 +1,94 @@
+import React from "react";
+import { Link, useLocation } from "react-router-dom";
+import { Sparkles, History, Home, Zap, LogOut, Menu, X, Crown, ShieldCheck } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { base44 } from "@/api/base44Client";
+import { useState } from "react";
+
+export default function Navbar({ credits, isPremium, userRole, isAdmin }) {
+  const location = useLocation();
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const remaining = (credits?.total_credits || 50) - (credits?.used_credits || 0);
+
+  const navItems = [
+    { path: "/", label: "Home", icon: Home },
+    { path: "/editor", label: "Editor", icon: Sparkles },
+    { path: "/history", label: "History", icon: History },
+    { path: "/buy-credits", label: "Beli Credit", icon: Crown },
+    ...(userRole === "admin" ? [{ path: "/admin/payments", label: "Admin", icon: ShieldCheck }] : []),
+  ];
+
+  return (
+    <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6">
+        <div className="flex items-center justify-between h-16">
+          <Link to="/" className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+              <Sparkles className="w-5 h-5 text-white" />
+            </div>
+            <span className="font-display text-lg font-bold tracking-tight text-foreground">
+              Qennan AI
+            </span>
+          </Link>
+
+          <div className="hidden md:flex items-center gap-1">
+            {navItems.map((item) => (
+              <Link key={item.path} to={item.path}>
+                <Button
+                  variant={location.pathname === item.path ? "secondary" : "ghost"}
+                  size="sm"
+                  className="gap-2 text-sm"
+                >
+                  <item.icon className="w-4 h-4" />
+                  {item.label}
+                </Button>
+              </Link>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-secondary border border-border">
+              {isPremium ? <Crown className="w-4 h-4 text-amber-400" /> : <Zap className="w-4 h-4 text-primary" />}
+              <span className="text-sm font-medium text-foreground">{isAdmin ? "∞" : remaining}</span>
+              <span className="text-xs text-muted-foreground hidden sm:inline">{isAdmin ? "Admin" : isPremium ? "Premium" : "credits"}</span>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground hover:text-foreground"
+              onClick={() => base44.auth.logout("/")}
+            >
+              <LogOut className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="md:hidden"
+              onClick={() => setMobileOpen(!mobileOpen)}
+            >
+              {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {mobileOpen && (
+        <div className="md:hidden border-t border-border bg-background/95 backdrop-blur-xl">
+          <div className="px-4 py-3 flex flex-col gap-1">
+            {navItems.map((item) => (
+              <Link key={item.path} to={item.path} onClick={() => setMobileOpen(false)}>
+                <Button
+                  variant={location.pathname === item.path ? "secondary" : "ghost"}
+                  className="w-full justify-start gap-2"
+                >
+                  <item.icon className="w-4 h-4" />
+                  {item.label}
+                </Button>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+    </nav>
+  );
+}

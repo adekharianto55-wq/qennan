@@ -1,0 +1,156 @@
+import React, { useState, useEffect } from "react";
+import { base44 } from "@/api/base44Client";
+import { Button } from "@/components/ui/button";
+import { CheckCircle2, XCircle, Clock, Eye } from "lucide-react";
+import { motion } from "framer-motion";
+import { useToast } from "@/components/ui/use-toast";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
+export default function AdminPayments() {
+  const { toast } = useToast();
+  const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedProof, setSelectedProof] = useState(null);
+  const [processing, setProcessing] = useState(null);
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const init = async () => {
+      const me = await base44.auth.me();
+      setUser(me);
+      if (me.role !== "admin") return;
+      await loadRequests();
+    };
+    init();
+  }, []);
+
+  const loadRequests = async () => {
+    setLoading(true);
+    try {
+      const data = await base44.entities.PaymentRequest.list("-created_date", 50);
+      setRequests(data);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleApprove = async (req) => {
+    setProcessing(req.id);
+    try {
+      // Update payment status
+      await base44.entities.PaymentRequest.update(req.id, { status: "approved" });
+
+      // Update user to premium
+      await base44.auth.updateMe({ is_premium: true });
+
+      // Add credits to user's account
+      const accounts = await base44.entities.CreditAccount.filter({ created_by_id: req.user_id });
+      if (accounts.length > 0) {
+        await base44.entities.CreditAccount.update(accounts[0].id, {
+          total_credits: (accounts[0].total_credits || 0) + 500,
+        });
+      } else {
+        await base44.entities.CreditAccount.create({
+          total_credits: 500,
+          used_credits: 0,
+        });
+      }
+
+      await loadRequests();
+      toast({ title: "Disetujui!", description: `${req.user_name || req.user_email} sekarang Premium.` });
+    } catch (e) {
+      toast({ title: "Gagal", variant: "destructive" });
+    } finally {
+      setProcessing(null);
+    }
+  };
+
+  const handleReject = async (req) => {
+    setProcessing(req.id);
+    try {
+      await base44.entities.PaymentRequest.update(req.id, { status: "rejected" });
+      await loadRequests();
+      toast({ title: "Ditolak" });
+    } catch (e) {
+      toast({ title: "Gagal", variant: "destructive" });
+    } finally {
+      setProcessing(null);
+    }
+  };
+
+  if (!user) return null;
+  if (user.role !== "admin") {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <p className="text-muted-foreground">Halaman khusus admin.</p>
+      </div>
+    );
+  }
+
+  const STATUS_MAP = {
+    pending: { color: "text-amber-400 bg-amber-400/10", label: "Pending" },
+    approved: { color: "text-emerald-400 bg-emerald-400/10", label: "Disetujui" },
+    rejected: { color: "text-red-400 bg-red-400/10", label: "Ditolak" },
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+        <h1 className="font-display text-2xl sm:text-3xl font-bold text-foreground mb-1">Kelola Pembayaran</h1>
+        <p className="text-sm text-muted-foreground mb-8">Verifikasi bukti transfer pengguna</p>
+
+        {loading ? (
+          <div className="flex justify-center py-20">
+            <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+          </div>
+        ) : requests.length === 0 ? (
+          <div className="text-center py-20 text-muted-foreground">Belum ada permintaan.</div>
+        ) : (
+          <div className="space-y-4">
+            {requests.map((req) => {
+              const s = STATUS_MAP[req.status] || STATUS_MAP.pending;
+              return (
+                <div key={req.id} className="rounded-xl border border-border bg-card p-5 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+                  <div className="space-y-1">
+                    <p className="font-semibold text-foreground">{req.user_name || req.user_email}</p>
+                    <p className="text-xs text-muted-foreground">{req.user_email}</p>
+                    <p className="text-xs text-muted-foreground">{new Date(req.created_date).toLocaleString("id-ID")}</p>
+                    <div className="flex items-center gap-2 pt-1">
+                      <span className="text-xs font-bold text-primary">Rp {req.amount?.toLocaleString("id-ID")}</span>
+                      <span className="text-xs text-muted-foreground">· {req.credits} credit</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${s.color}`}>{s.label}</span>
+                    {req.proof_image_url && (
+                      <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setSelectedProof(req.proof_image_url)}>
+                        <Eye className="w-3.5 h-3.5" /> Bukti
+                      </Button>
+                    )}
+                    {req.status === "pending" && (
+                      <>
+                        <Button size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white" disabled={processing === req.id} onClick={() => handleApprove(req)}>
+                          <CheckCircle2 className="w-3.5 h-3.5" /> Setujui
+                        </Button>
+                        <Button size="sm" variant="destructive" className="gap-1.5" disabled={processing === req.id} onClick={() => handleReject(req)}>
+                          <XCircle className="w-3.5 h-3.5" /> Tolak
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </motion.div>
+
+      <Dialog open={!!selectedProof} onOpenChange={() => setSelectedProof(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Bukti Transfer</DialogTitle></DialogHeader>
+          <img src={selectedProof} alt="Bukti" className="w-full rounded-lg" />
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
